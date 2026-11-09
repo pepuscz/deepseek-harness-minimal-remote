@@ -124,3 +124,25 @@ test('registered route prefixes follow host segment matching without trailing sl
   }
   effects.forEach(f => f());
 });
+
+test('remote HTTP namespace requires admission, a matching host header and API-only paths', async () => {
+  let route, admission = { rejection: 401 }, status;
+  const effects = [];
+  apply({ effect: f => effects.push(f()), on() {}, connection: { admit: () => admission }, webServer: {
+    register: r => { if (r.path === '/personal-remote/http') route = r; return () => {}; }, registerUpgrade: () => () => {},
+  } }, { hosts: [{ id: 'dev', origin: 'http://127.0.0.1:19391', tokenFile: '/not-read' }] });
+  const res = { writeHead: c => { status = c; }, end() {} };
+  await route.handler({ url: '/personal-remote/http/dev/api/read', headers: { [HOST_HEADER]: 'dev' } }, res);
+  assert.equal(status, 401);
+  admission = { peer: {} };
+  for (const [url, id] of [
+    ['/personal-remote/http/dev/api/read', 'local'],
+    ['/personal-remote/http/local/api/read', 'local'],
+    ['/personal-remote/http/unknown/api/read', 'unknown'],
+    ['/personal-remote/http/dev/private', 'dev'],
+  ]) {
+    await route.handler({ url, headers: { [HOST_HEADER]: id } }, res);
+    assert.equal(status, 400);
+  }
+  effects.forEach(f => f());
+});
