@@ -88,7 +88,7 @@ test('importer route fails closed for unauthenticated, local and unknown hosts',
   const effects = [];
   apply({ effect: f => effects.push(f()), on() {},
     connection: { admit: () => admission },
-    webServer: { register: r => { if (r.path === '/api-import/') route = r; return () => {}; }, registerUpgrade: () => () => {} },
+    webServer: { register: r => { if (r.path === '/api-import') route = r; return () => {}; }, registerUpgrade: () => () => {} },
   }, { hosts: [{ id: 'dev', origin: 'http://127.0.0.1:19391', tokenFile: '/not-read' }] });
   let status;
   const res = { writeHead: c => { status = c; }, end() {} };
@@ -113,3 +113,14 @@ test('importer route fails closed for unauthenticated, local and unknown hosts',
      }
    }
  });
+
+test('registered route prefixes follow host segment matching without trailing slash', () => {
+  const routes = [], effects = [];
+  apply({ effect: f => effects.push(f()), on() {}, connection: {}, webServer: {
+    register: r => { routes.push(r); return () => {}; }, registerUpgrade: () => () => {},
+  } }, { hosts: [{ id: 'dev', origin: 'http://127.0.0.1:19391', tokenFile: '/not-read' }] });
+  for (const path of ['/api-import/history', '/personal-remote/http/dev/api/deepseek-usage']) {
+    assert.ok(routes.some(r => path === r.path || path.startsWith(r.path + '/')));
+  }
+  effects.forEach(f => f());
+});

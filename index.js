@@ -18,7 +18,7 @@ export function apply(ctx, config) {
     return proxy.forward(req, res);
   });
   // Remote importer UI has a separate route family. Never run it on the local host.
-  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/api-import/', handler: (req, res) => {
+  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/api-import', handler: (req, res) => {
     const admission = ctx.connection.admit(req);
     if ('rejection' in admission) { res.writeHead(admission.rejection); res.end('Denied'); return; }
     const id = req.headers[HOST_HEADER];
@@ -27,7 +27,7 @@ export function apply(ctx, config) {
     return proxy.forward(req, res);
   } }));
   // Dedicated namespace prevents local exact plugin routes from intercepting remote requests.
-  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/personal-remote/http/', handler: (req, res) => {
+  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/personal-remote/http', handler: (req, res) => {
     const admission = ctx.connection.admit(req);
     if ('rejection' in admission) { res.writeHead(admission.rejection); res.end('Denied'); return; }
     const match = /^\/personal-remote\/http\/([a-z][a-z0-9-]*)\/(api\/|api-import\/)/.exec(req.url);
