@@ -6,6 +6,17 @@ Use the existing conversation UI, file previews and approval controls while work
 
 **Experimental macOS prototype.** Qualified with DSH **0.2.2-rc.1** on Apple Silicon. The included demo runs both ends locally with separate profiles. It does not yet manage SSH or establish OS-level isolation. This is an independent community project, not an official DeepSeek plugin. “Desktop” means the existing DSH application, not a new native UI toolkit.
 
+## Small dependency footprint, easier security review
+
+This plugin adds **no npm runtime or development dependencies**. It reuses Node/browser APIs and services already supplied by DSH, keeping the additional dependency tree small and the source easier to inspect.
+
+- **No install lifecycle scripts.** CI runs tests without installing npm packages.
+- **Dependency changes are visible.** Tests enforce the reviewed manifest baseline, including peer dependencies and common lifecycle hooks.
+- **Pinned CI tooling.** GitHub Actions use full commit hashes instead of moving version tags.
+- **Deliberate updates.** Our release policy requires reviewed Git snapshots and SHA-256 checksums before promotion.
+
+These safeguards reduce supply-chain exposure; they are not a security certification or a sandbox. DSH and its own dependencies remain part of the trust boundary. See the [dependency and review policy](DEPENDENCIES.md).
+
 ## One desktop, multiple hosts
 
 The plugin can now add a compact **Local / Development** switcher to your existing desktop profile. **Local** uses the original account and session store; each configured remote uses its own host and history. Click a host directly to reload the view in the same window—no menu or confirmation step. A small dot shows connection status; Reconnect appears only when disconnected. Save or send drafts first. Switching does not move sessions or stop host-side tasks. On app launch, Local is the default.
@@ -108,5 +119,3 @@ The tests cover target validation, credential handling, binary responses, backen
 - DSH is evolving quickly. Requalify API compatibility and authentication after any version change; a matching version string alone is insufficient.
 
 Contributions that keep the connector small, preserve approvals and add reproducible tests are welcome. Licensed under MIT.
-
-Dependency policy: [DEPENDENCIES.md](DEPENDENCIES.md).
