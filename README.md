@@ -8,7 +8,7 @@ Use the existing conversation UI, file previews and approval controls while work
 
 ## One desktop, multiple hosts
 
-The plugin can now add a **Host** menu to your existing desktop profile. **Local** uses the original account and session store; each configured remote uses its own host and history. The menu includes connection status and Reconnect. Choose a host and click **Switch** to reload the view in the same window. Save or send drafts first. Switching does not move sessions or stop host-side tasks. On app launch, Local is the default.
+The plugin can now add a compact **Local / Development** switcher to your existing desktop profile. **Local** uses the original account and session store; each configured remote uses its own host and history. Click a host directly to reload the view in the same window—no menu or confirmation step. A small dot shows connection status; Reconnect appears only when disconnected. Save or send drafts first. Switching does not move sessions or stop host-side tasks. On app launch, Local is the default.
 
 Install the plugin into the desktop profile using the bundled `dsh plugin --profile desktop add link:/absolute/path/to/this/repository`, then add this entry to that profile's `cordis.patch.yml` and restart the app:
 
