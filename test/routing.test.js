@@ -48,7 +48,7 @@ test('unknown hosts fail closed; local explicitly calls the existing DSH handler
   let handler;
   const effects = [];
   apply({ effect: f => effects.push(f()), on: (name, f) => { if (name === 'connection/request') handler = f; },
-    connection: {}, webServer: { registerUpgrade: () => () => {} },
+    connection: {}, webServer: { register: () => () => {}, registerUpgrade: () => () => {} },
   }, { hosts: [{ id: 'dev', origin: 'http://127.0.0.1:19391', tokenFile: '/not-read' }] });
   let local = 0, code;
   const res = { writeHead: c => code = c, end() {} };
@@ -75,4 +75,29 @@ test('custom desktop scheme is routed and unknown host cannot traverse into loca
   p.location.origin = 'dsh-app://app';
   await p.context.fetch('/api/read');
   assert.equal(p.requests[0].init.headers.get(HOST_HEADER), '../api/remote.mux');
+});
+
+test('importer requests carry the selected remote host', async () => {
+  const p = page('dev');
+  await p.context.fetch('/api-import/history', { method: 'POST', body: '{}' });
+  assert.equal(p.requests[0].init.headers.get(HOST_HEADER), 'dev');
+});
+
+test('importer route fails closed for unauthenticated, local and unknown hosts', async () => {
+  let route, admission = { rejection: 401 };
+  const effects = [];
+  apply({ effect: f => effects.push(f()), on() {},
+    connection: { admit: () => admission },
+    webServer: { register: r => { route = r; return () => {}; }, registerUpgrade: () => () => {} },
+  }, { hosts: [{ id: 'dev', origin: 'http://127.0.0.1:19391', tokenFile: '/not-read' }] });
+  let status;
+  const res = { writeHead: c => { status = c; }, end() {} };
+  await route.handler({ headers: { [HOST_HEADER]: 'dev' } }, res);
+  assert.equal(status, 401);
+  admission = { peer: {} };
+  for (const id of ['local', 'unknown', undefined]) {
+    await route.handler({ headers: { [HOST_HEADER]: id } }, res);
+    assert.equal(status, 400);
+  }
+  effects.forEach(f => f());
 });

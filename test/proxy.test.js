@@ -103,7 +103,7 @@ test('plugin protects the added upgrade route with DSH admission', () => {
   const effects = [];
   const ctx = {
     effect: f => { effects.push(f()); }, on() {},
-    webServer: { registerUpgrade: r => { route = r; return () => {}; } },
+    webServer: { register: () => () => {}, registerUpgrade: r => { route = r; return () => {}; } },
     connection: { admit: () => ({ rejection: 403 }) },
   };
   apply(ctx, { origin: 'http://127.0.0.1:19381', tokenFile: '/not-read' });

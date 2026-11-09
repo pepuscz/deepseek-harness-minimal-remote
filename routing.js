@@ -23,7 +23,7 @@ export function bootSwitcher(options) {
     const request = new Request(new URL(typeof input === 'string' ? input : input instanceof URL ? input.href : input.url, location.href), input instanceof Request ? input : undefined);
     const url = new URL(request.url);
     const page = new URL(location.href);
-    if (url.protocol !== page.protocol || url.host !== page.host || !url.pathname.startsWith('/api/')) return nativeFetch(input, init);
+    if (url.protocol !== page.protocol || url.host !== page.host || !(url.pathname.startsWith('/api/') || url.pathname.startsWith('/api-import/'))) return nativeFetch(input, init);
     const headers = new Headers(init?.headers ?? request.headers);
     headers.set('x-dsh-remote-host', selected);
     return nativeFetch(request, { ...init, headers });

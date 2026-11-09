@@ -17,6 +17,15 @@ export function apply(ctx, config) {
     if (!proxy) { res.writeHead(400); res.end('Unknown DSH host. No local fallback.'); return; }
     return proxy.forward(req, res);
   });
+  // Remote importer UI has a separate route family. Never run it on the local host.
+  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/api-import/', handler: (req, res) => {
+    const admission = ctx.connection.admit(req);
+    if ('rejection' in admission) { res.writeHead(admission.rejection); res.end('Denied'); return; }
+    const id = req.headers[HOST_HEADER];
+    const proxy = proxies.get(id);
+    if (!proxy) { res.writeHead(400); res.end('Select a remote host to import sessions.'); return; }
+    return proxy.forward(req, res);
+  } }));
   for (const [id, proxy] of proxies) ctx.effect(() => ctx.webServer.registerUpgrade({
     path: '/personal-remote/mux/' + id,
     handler: (req, socket, head) => {

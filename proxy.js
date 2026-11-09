@@ -47,7 +47,7 @@ export class RemoteProxy {
       const cookie = await this.cookie();
       if (res.destroyed) return;
       const target = new URL(req.url, this.origin);
-      if (target.origin !== this.origin || !target.pathname.startsWith('/api/')) throw new Error('Unsupported remote path');
+      if (target.origin !== this.origin || !(target.pathname.startsWith('/api/') || target.pathname.startsWith('/api-import/'))) throw new Error('Unsupported remote path');
       const headers = {};
       for (const [name, value] of Object.entries(req.headers)) {
         if (!hop.has(name) && !['host', 'cookie', 'origin', 'sec-fetch-site', 'authorization', 'x-dsh-remote-host'].includes(name)) headers[name] = value;
