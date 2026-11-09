@@ -108,3 +108,5 @@ The tests cover target validation, credential handling, binary responses, backen
 - DSH is evolving quickly. Requalify API compatibility and authentication after any version change; a matching version string alone is insufficient.
 
 Contributions that keep the connector small, preserve approvals and add reproducible tests are welcome. Licensed under MIT.
+
+Dependency policy: [DEPENDENCIES.md](DEPENDENCIES.md).
