@@ -88,7 +88,7 @@ test('importer route fails closed for unauthenticated, local and unknown hosts',
   const effects = [];
   apply({ effect: f => effects.push(f()), on() {},
     connection: { admit: () => admission },
-    webServer: { register: r => { route = r; return () => {}; }, registerUpgrade: () => () => {} },
+    webServer: { register: r => { if (r.path === '/api-import/') route = r; return () => {}; }, registerUpgrade: () => () => {} },
   }, { hosts: [{ id: 'dev', origin: 'http://127.0.0.1:19391', tokenFile: '/not-read' }] });
   let status;
   const res = { writeHead: c => { status = c; }, end() {} };
@@ -101,3 +101,15 @@ test('importer route fails closed for unauthenticated, local and unknown hosts',
   }
   effects.forEach(f => f());
 });
+
+ test('remote custom plugin routes bypass local exact routes while local URLs stay unchanged', async () => {
+   for (const id of ['dev', 'local']) {
+     const p = page(id);
+     for (const path of ['/api/deepseek-usage?lang=en', '/api-import/history']) {
+       await p.context.fetch(path, { method: 'POST', body: '{}' });
+       const sent = p.requests.at(-1);
+       assert.equal(new URL(sent.input.url).pathname, (id === 'dev' ? '/personal-remote/http/dev' : '') + path.split('?')[0]);
+       assert.equal(sent.init.body, '{}');
+     }
+   }
+ });

@@ -121,3 +121,5 @@ The tests cover target validation, credential handling, binary responses, backen
 Contributions that keep the connector small, preserve approvals and add reproducible tests are welcome. Licensed under MIT.
 
 The reviewed import companion uses an explicitly admitted `/api-import/` proxy to the selected remote host. Local/unknown host targets are refused; it does not grant filesystem access or run local imports.
+
+Remote HTTP requests use an authenticated `/personal-remote/http/<host>/` namespace so local plugin routes cannot intercept Dev requests. Invalid hosts and non-API paths fail closed.

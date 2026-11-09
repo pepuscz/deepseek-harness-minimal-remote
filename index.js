@@ -26,6 +26,18 @@ export function apply(ctx, config) {
     if (!proxy) { res.writeHead(400); res.end('Select a remote host to import sessions.'); return; }
     return proxy.forward(req, res);
   } }));
+  // Dedicated namespace prevents local exact plugin routes from intercepting remote requests.
+  ctx.effect(() => ctx.webServer.register({ kind: 'prefix', path: '/personal-remote/http/', handler: (req, res) => {
+    const admission = ctx.connection.admit(req);
+    if ('rejection' in admission) { res.writeHead(admission.rejection); res.end('Denied'); return; }
+    const match = /^\/personal-remote\/http\/([a-z][a-z0-9-]*)\/(api\/|api-import\/)/.exec(req.url);
+    const proxy = match && proxies.get(match[1]);
+    if (!proxy || req.headers[HOST_HEADER] !== match[1]) {
+      res.writeHead(400); res.end('Invalid remote route. No local fallback.'); return;
+    }
+    req.url = req.url.slice(('/personal-remote/http/' + match[1]).length);
+    return proxy.forward(req, res);
+  } }));
   for (const [id, proxy] of proxies) ctx.effect(() => ctx.webServer.registerUpgrade({
     path: '/personal-remote/mux/' + id,
     handler: (req, socket, head) => {

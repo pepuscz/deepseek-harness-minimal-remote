@@ -26,6 +26,10 @@ export function bootSwitcher(options) {
     if (url.protocol !== page.protocol || url.host !== page.host || !(url.pathname.startsWith('/api/') || url.pathname.startsWith('/api-import/'))) return nativeFetch(input, init);
     const headers = new Headers(init?.headers ?? request.headers);
     headers.set('x-dsh-remote-host', selected);
+    if (selected !== 'local') {
+      url.pathname = '/personal-remote/http/' + (known ? selected : '_unavailable') + url.pathname;
+      return nativeFetch(new Request(url, request), { ...init, headers });
+    }
     return nativeFetch(request, { ...init, headers });
   };
   globalThis.fetch = routeFetch;
