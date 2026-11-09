@@ -1,15 +1,24 @@
 import { RemoteProxy } from './proxy.js';
+import { HOST_HEADER, hostList, bootSwitcher } from './routing.js';
 
 export const name = 'personal-remote-connector';
 export const inject = ['webServer', 'connection'];
 
 /** Compose public boot-injection, HTTP waterfall and upgrade-route APIs. No Gateway monkey patches. */
 export function apply(ctx, config) {
-  const proxy = new RemoteProxy(config);
-  ctx.effect(() => () => proxy.close());
-  ctx.on('connection/request', (req, res) => proxy.forward(req, res));
-  ctx.effect(() => ctx.webServer.registerUpgrade({
-    path: '/personal-remote/mux',
+  const hosts = hostList(config);
+  const proxies = new Map(hosts.map(host => [host.id, new RemoteProxy(host)]));
+  const defaultHost = config.hosts ? 'local' : 'remote';
+  ctx.effect(() => () => { for (const proxy of proxies.values()) proxy.close(); });
+  ctx.on('connection/request', (req, res, next) => {
+    const id = req.headers[HOST_HEADER] ?? defaultHost;
+    if (id === 'local') return next();
+    const proxy = proxies.get(id);
+    if (!proxy) { res.writeHead(400); res.end('Unknown DSH host. No local fallback.'); return; }
+    return proxy.forward(req, res);
+  });
+  for (const [id, proxy] of proxies) ctx.effect(() => ctx.webServer.registerUpgrade({
+    path: '/personal-remote/mux/' + id,
     handler: (req, socket, head) => {
       const admission = ctx.connection.admit(req);
       if ('rejection' in admission) {
@@ -20,16 +29,9 @@ export function apply(ctx, config) {
     },
   }));
   ctx.on('webserver/index-inject', table => {
-    table.push({ kind: 'global', name: '__PERSONAL_REMOTE_LABEL__', value: config.label });
-    table.push({ kind: 'script', placement: 'head', text: `
-      (() => {
-        const transport = globalThis.__DSH_TRANSPORT__ ??= {};
-        transport.createWebSocket = url => {
-          const target = new URL(url);
-          target.pathname = '/personal-remote/mux';
-          return new WebSocket(target);
-        };
-      })();
-    ` });
+    const options = { defaultHost, hosts: [{ id: 'local', label: 'Local', description: 'This account' },
+      ...hosts.map(({ id, label }) => ({ id, label, description: 'Remote host' }))] };
+    table.push({ kind: 'script', placement: 'head', text:
+      `(${bootSwitcher.toString()})(${JSON.stringify(options).replaceAll('<', '\\u003c')});` });
   });
 }

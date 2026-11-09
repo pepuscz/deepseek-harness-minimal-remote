@@ -4,7 +4,29 @@ A minimal, dependency-free plugin that connects the **official DeepSeek Harness 
 
 Use the existing conversation UI, file previews and approval controls while work and session history live on the host. No DSH fork, hosted coordination service or third-party remote plugin is required.
 
-**Experimental macOS prototype.** Qualified with DSH **0.2.2-rc.1** on Apple Silicon. The included demo runs both ends locally with separate profiles. It does not yet manage SSH, provide a host picker, or establish OS-level isolation. This is an independent community project, not an official DeepSeek plugin. “Desktop” means the existing DSH application, not a new native UI toolkit.
+**Experimental macOS prototype.** Qualified with DSH **0.2.2-rc.1** on Apple Silicon. The included demo runs both ends locally with separate profiles. It does not yet manage SSH or establish OS-level isolation. This is an independent community project, not an official DeepSeek plugin. “Desktop” means the existing DSH application, not a new native UI toolkit.
+
+## One desktop, multiple hosts
+
+The plugin can now add a **Host** menu to your existing desktop profile. **Local** uses the original account and session store; each configured remote uses its own host and history. The menu includes connection status and Reconnect. Choose a host and click **Switch** to reload the view in the same window. Save or send drafts first. Switching does not move sessions or stop host-side tasks. On app launch, Local is the default.
+
+Install the plugin into the desktop profile using the bundled `dsh plugin --profile desktop add link:/absolute/path/to/this/repository`, then add this entry to that profile's `cordis.patch.yml` and restart the app:
+
+```yaml
+- id: personal-remote-connector
+  config:
+    hosts:
+      - id: development
+        label: Development
+        origin: http://127.0.0.1:19391
+        tokenFile: /absolute/private/path/to/host-token
+```
+
+Use a token file owned by the desktop user with mode `0600`. Never put tokens into the profile patch or this repository. The previous single `origin`/`tokenFile` configuration still works and starts on Remote.
+
+The chosen host is captured for each page lifetime and stamped on same-origin API fetches; streaming uses a separate admitted route per host. In-flight requests retain their destination when switching. A full page reload resets in-memory session caches. Unknown hosts and failed remote connections never fall back to local execution. The native `dsh-app://` transport is supported without changing the installed app.
+
+Qualified on the original macOS desktop: Local → Development → Local in one window, remote workspace/model controls, and restoration of local conversation history. This is still a connectivity plugin: native OS actions such as Finder, directory picking and browser automation may run on the client and are not qualified as remote operations. Media and artifact coverage remain incomplete.
 
 ## Quick start
 
@@ -74,7 +96,7 @@ Run the focused tests with:
 node --test test/*.test.js
 ```
 
-The six tests cover target validation, credential handling, binary responses, backend failure, token-file permissions, bidirectional streaming and upgrade-route admission. `cdp.mjs` is a developer-only helper for explicitly enabled prototype debugging ports; normal launches do not enable debugging.
+The tests cover target validation, credential handling, binary responses, backend failure, token-file permissions, bidirectional streaming and upgrade-route admission. `cdp.mjs` is a developer-only helper for explicitly enabled prototype debugging ports; normal launches do not enable debugging.
 
 ## Limits and next tests
 

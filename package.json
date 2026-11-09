@@ -1,16 +1,33 @@
 {
   "name": "@pepuscz/dsh-ssh-connector",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "private": true,
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/pepuscz/deepseek-harness-minimal-remote.git" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pepuscz/deepseek-harness-minimal-remote.git"
+  },
   "homepage": "https://github.com/pepuscz/deepseek-harness-minimal-remote#readme",
   "type": "module",
   "description": "Experimental DSH desktop connection to a pinned loopback host or SSH forward",
-  "exports": { ".": "./index.js", "./client": "./client.js", "./package.json": "./package.json" },
-  "dsh": {
-    "bundle": { "patch": "./cordis.patch.yml" },
-    "client": { "inject": ["@deepseek-ai/dsh-client-ui-slots", "@deepseek-ai/dsh-client-connection"], "platform": "web" }
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./package.json": "./package.json"
   },
-  "scripts": { "test": "node --test test/*.test.js" }
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-slots",
+        "@deepseek-ai/dsh-client-connection"
+      ],
+      "platform": "web"
+    }
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js"
+  }
 }
