@@ -1,0 +1,4 @@
+- insert:
+    - id: personal-remote-connector
+      name: '@pepuscz/dsh-ssh-connector'
+      inject: [webServer, connection]
