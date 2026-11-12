@@ -17,7 +17,7 @@ test('HTTPS verifies certificates and carries authenticated HTTP and WebSocket t
   await writeFile(tokenFile, 'fixture-token', { mode: 0o600 });
   const origin = https.createServer({ key: await readFile(key), cert: await readFile(cert) }, (req, res) => {
     if (req.url === '/?token=fixture-token') {
-      res.writeHead(303, { 'set-cookie': 'dsh-auth-fixture=ok; HttpOnly; Path=/', location: '/' }); res.end(); return;
+      res.writeHead(303, { 'set-cookie': 'dsh-auth-fixture=ok; Max-Age=1800; HttpOnly; Path=/', location: '/' }); res.end(); return;
     }
     assert.equal(req.headers.cookie, 'dsh-auth-fixture=ok');
     assert.equal(req.headers.authorization, undefined);
@@ -42,6 +42,7 @@ test('HTTPS verifies certificates and carries authenticated HTTP and WebSocket t
     import http from 'node:http';
     import net from 'node:net';
     import { once } from 'node:events';
+    import { readFile } from 'node:fs/promises';
     import { RemoteProxy } from ${JSON.stringify(new URL('../proxy.js', import.meta.url).href)};
     const proxy = new RemoteProxy({ origin: process.env.TEST_ORIGIN, tokenFile: process.env.TEST_TOKEN_FILE });
     const front = http.createServer((req, res) => proxy.forward(req, res));
@@ -52,6 +53,11 @@ test('HTTPS verifies certificates and carries authenticated HTTP and WebSocket t
       assert.equal(response.status, 200);
       assert.deepEqual(Buffer.from(await response.arrayBuffer()), Buffer.from([0, 255, 42]));
       assert.equal(response.headers.get('set-cookie'), null);
+      const saved = JSON.parse(await readFile(process.env.TEST_TOKEN_FILE, 'utf8'));
+      assert.equal(saved.origin, process.env.TEST_ORIGIN);
+      assert.ok(saved.expiresAt > Date.now());
+      const pairedAgain = new RemoteProxy({ origin: process.env.TEST_ORIGIN, tokenFile: process.env.TEST_TOKEN_FILE });
+      assert.equal(await pairedAgain.cookie(), saved.cookie); pairedAgain.close();
       const socket = net.connect(front.address().port, '127.0.0.1');
       await once(socket, 'connect');
       socket.write('GET / HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: Upgrade\\r\\nUpgrade: websocket\\r\\nSec-WebSocket-Version: 13\\r\\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\\r\\n\\r\\n');

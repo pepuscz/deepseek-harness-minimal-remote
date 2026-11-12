@@ -123,3 +123,14 @@ Contributions that keep the connector small, preserve approvals and add reproduc
 The reviewed import companion uses an explicitly admitted `/api-import/` proxy to the selected remote host. Local/unknown host targets are refused; it does not grant filesystem access or run local imports.
 
 Remote HTTP requests use an authenticated `/personal-remote/http/<host>/` namespace so local plugin routes cannot intercept Dev requests. Invalid hosts and non-API paths fail closed.
+
+## Pairing across host restarts
+
+The owner-only `tokenFile` accepts an initial DSH launch token. When the server
+returns a session cookie with its lifetime, the connector replaces that file
+with an origin-bound session record. Subsequent launches reuse the server-issued
+session, so restarting DSH does not require copying a new process launch token.
+No signing secret is copied, no cookies reach the renderer, and the server's
+expiry remains authoritative. Expired or revoked sessions require pairing again;
+this does not extend DSH's configured session lifetime. Keep this file private.
+A session for one origin cannot be reused for a different origin.

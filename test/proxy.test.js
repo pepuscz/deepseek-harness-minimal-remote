@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import net from 'node:net';
 import { once } from 'node:events';
-import { mkdtemp, writeFile, chmod, rm } from 'node:fs/promises';
+import { mkdtemp, writeFile, readFile, chmod, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { RemoteProxy, validateOrigin } from '../proxy.js';
@@ -113,4 +113,25 @@ test('plugin protects the added upgrade route with DSH admission', () => {
   route.handler({}, { end: text => response = text }, Buffer.alloc(0));
   assert.match(response, /403 Denied/);
   effects.forEach(f => f());
+});
+
+
+test('server-issued sessions survive a new proxy process without reusing a launch token', async t => {
+  const f = await fixture(t, (_req,res) => res.end('ok'));
+  const saved = { version:1, origin:f.proxy.origin, cookie:'dsh-auth-test=fixture', expiresAt:Date.now()+60000 };
+  await writeFile(f.tokenFile, JSON.stringify(saved));
+  const replacement = new RemoteProxy({ origin:f.proxy.origin, tokenFile:f.tokenFile });
+  t.after(() => replacement.close());
+  assert.equal(await replacement.cookie(), saved.cookie);
+  assert.equal((await fetch(f.url+'/api/test')).status, 200);
+});
+
+test('stored sessions reject expiry, a different origin, and header injection', async t => {
+  const f = await fixture(t, (_req,res) => res.end('must not reach'));
+  const good = { version:1, origin:f.proxy.origin, cookie:'dsh-auth-test=fixture', expiresAt:Date.now()+60000 };
+  for (const record of [{...good, expiresAt:0}, {...good, origin:'https://other.example'}, {...good,cookie:'dsh-auth-test=x\r\nInjected: true'}]) {
+    await writeFile(f.tokenFile,JSON.stringify(record));
+    const p = new RemoteProxy({origin:f.proxy.origin,tokenFile:f.tokenFile});
+    await assert.rejects(p.cookie());p.close();
+  }
 });

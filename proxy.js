@@ -1,6 +1,6 @@
 import http from 'node:http';
 import https from 'node:https';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, stat, writeFile } from 'node:fs/promises';
 
 const hop = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade']);
 
@@ -37,13 +37,31 @@ export class RemoteProxy {
     if (!info.isFile() || (info.mode & 0o077) || info.uid !== process.getuid()) throw new Error('Host token must be an owner-only file owned by this user');
     const token = (await readFile(this.tokenFile, 'utf8')).trim();
     if (!token || token.length > 4096) throw new Error('Invalid host token file');
+    if (token.startsWith('{')) {
+      const saved = JSON.parse(token);
+      if (saved.version !== 1 || saved.origin !== this.origin || !Number.isSafeInteger(saved.expiresAt) || saved.expiresAt <= Date.now() ||
+          typeof saved.cookie !== 'string' || !/^dsh-auth-[A-Za-z0-9_-]+=[A-Za-z0-9._-]+$/.test(saved.cookie)) {
+        throw new Error('Host session expired or belongs to another origin; pair again');
+      }
+      return saved.cookie;
+    }
     const url = new URL('/', this.origin);
     url.searchParams.set('token', token);
     const response = await fetch(url, { redirect: 'manual', signal: AbortSignal.timeout(5000) });
     const cookies = response.headers.getSetCookie();
     await response.body?.cancel();
     if (![302, 303].includes(response.status) || cookies.length !== 1 || !cookies[0].startsWith('dsh-auth-')) throw new Error('Remote DSH authentication failed');
-    return cookies[0].split(';', 1)[0];
+    const cookie = cookies[0].split(';', 1)[0];
+    const maxAge = /(?:^|;)\s*Max-Age=(\d+)(?:;|$)/i.exec(cookies[0]);
+    if (maxAge && /^dsh-auth-[A-Za-z0-9_-]+=[A-Za-z0-9._-]+$/.test(cookie)) {
+      const expiresAt = Date.now() + Number(maxAge[1]) * 1000;
+      if (Number.isSafeInteger(expiresAt) && expiresAt > Date.now()) {
+        // Replace the process-scoped launch token with the server's limited session.
+        // Its lifetime and revocation remain controlled by DSH, never by this plugin.
+        await writeFile(this.tokenFile, JSON.stringify({ version: 1, origin: this.origin, cookie, expiresAt }) + '\n', { mode: 0o600 });
+      }
+    }
+    return cookie;
   }
 
   async forward(req, res) {
