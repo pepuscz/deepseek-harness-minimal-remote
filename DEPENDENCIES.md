@@ -5,7 +5,6 @@ Use Node built-ins, browser APIs, the Node test runner and the DSH-provided Reac
 Do not add a UI framework, icon library, HTTP client or build pipeline for convenience.
 
 The remote plugin relies on DSH host services and its UI slots, with no npm peers.
-Its optional prototype uses Python standard-library modules.
 
 New dependencies require a documented reason, alternatives considered, license and
 maintenance review, transitive dependency and install-script inspection, and exact
