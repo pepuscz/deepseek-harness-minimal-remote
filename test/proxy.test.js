@@ -36,11 +36,13 @@ async function fixture(t, handle) {
   return { origin, proxy, front, tokenFile, url: `http://127.0.0.1:${front.address().port}` };
 }
 
-test('only a fixed loopback origin is permitted', () => {
-  for (const value of ['http://example.com:80', 'http://127.0.0.1:80/path', 'http://user:pass@127.0.0.1:3000', 'http://0.0.0.0:3000']) {
+test('only loopback HTTP or fixed HTTPS origins are permitted', () => {
+  for (const value of ['http://example.com:80', 'http://127.0.0.1:80/path', 'http://user:pass@127.0.0.1:3000', 'http://0.0.0.0:3000', 'https://user:pass@example.test', 'https://example.test/path', 'https://example.test/?token=secret', 'https://example.test/#fragment', 'ftp://example.test']) {
     assert.throws(() => validateOrigin(value));
   }
   assert.equal(validateOrigin('http://127.0.0.1:19381'), 'http://127.0.0.1:19381');
+  assert.equal(validateOrigin('https://example.test'), 'https://example.test');
+  assert.equal(validateOrigin('https://example.test:9443'), 'https://example.test:9443');
 });
 
 test('preserves body and binary response while replacing authentication', async t => {

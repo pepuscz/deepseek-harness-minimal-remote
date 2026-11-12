@@ -1,13 +1,16 @@
 import http from 'node:http';
+import https from 'node:https';
 import { readFile, stat } from 'node:fs/promises';
 
 const hop = new Set(['connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization', 'te', 'trailer', 'transfer-encoding', 'upgrade']);
 
-/** Only a loopback listener or an independently authenticated SSH forward is accepted. */
+/** Plain HTTP is loopback-only; remote hosts require certificate-verified HTTPS. */
 export function validateOrigin(value) {
   const url = new URL(value);
-  if (url.protocol !== 'http:' || url.hostname !== '127.0.0.1' || !url.port || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
-    throw new Error('Connector origin must be http://127.0.0.1:<port> with no path or credentials');
+  const localHttp = url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port;
+  const secureRemote = url.protocol === 'https:' && url.hostname;
+  if ((!localHttp && !secureRemote) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
+    throw new Error('Connector origin must be loopback HTTP or certificate-verified HTTPS, with no path or credentials');
   }
   return url.origin;
 }
@@ -17,7 +20,8 @@ export class RemoteProxy {
   constructor({ origin, tokenFile }) {
     this.origin = validateOrigin(origin);
     this.tokenFile = tokenFile;
-    this.agent = new http.Agent({ keepAlive: true, maxSockets: 16 });
+    this.transport = new URL(this.origin).protocol === 'https:' ? https : http;
+    this.agent = new this.transport.Agent({ keepAlive: true, maxSockets: 16 });
     this.connections = new Set();
   }
 
@@ -53,7 +57,7 @@ export class RemoteProxy {
         if (!hop.has(name) && !['host', 'cookie', 'origin', 'sec-fetch-site', 'authorization', 'x-dsh-remote-host'].includes(name)) headers[name] = value;
       }
       headers.cookie = cookie;
-      const upstream = http.request(target, { method: req.method, headers, agent: this.agent }, response => {
+      const upstream = this.transport.request(target, { method: req.method, headers, agent: this.agent }, response => {
         if (response.statusCode === 401) this.authentication = undefined;
         const output = {};
         for (const [name, value] of Object.entries(response.headers)) if (!hop.has(name) && name !== 'set-cookie') output[name] = value;
@@ -85,7 +89,7 @@ export class RemoteProxy {
         'sec-websocket-version': req.headers['sec-websocket-version'],
       };
       for (const name of ['sec-websocket-protocol', 'sec-websocket-extensions']) if (req.headers[name]) headers[name] = req.headers[name];
-      const upstream = http.request(new URL('/api/remote.mux', this.origin), { headers });
+      const upstream = this.transport.request(new URL('/api/remote.mux', this.origin), { headers, agent: this.agent });
       socket.once('close', () => upstream.destroy());
       upstream.once('upgrade', (response, remote, remoteHead) => {
         this.connections.add(socket); this.connections.add(remote);

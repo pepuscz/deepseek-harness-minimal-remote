@@ -1,6 +1,6 @@
 {
   "name": "@pepuscz/dsh-ssh-connector",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "private": true,
   "license": "MIT",
   "repository": {
@@ -9,7 +9,7 @@
   },
   "homepage": "https://github.com/pepuscz/deepseek-harness-minimal-remote#readme",
   "type": "module",
-  "description": "Experimental DSH desktop connection to a pinned loopback host or SSH forward",
+  "description": "DSH desktop connector for pinned loopback or certificate-verified private HTTPS hosts",
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
