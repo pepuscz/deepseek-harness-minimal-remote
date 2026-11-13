@@ -24,6 +24,12 @@ Add the following to the desktop profile's `cordis.patch.yml`, then restart the 
 
 Labels and origins are configured here. Each host has its own sessions and workspace. Clicking a host reloads the same window; save drafts first. Running tasks stay on their host. Local is selected on app launch.
 
+## File uploads
+
+With a remote host selected, picking, dropping or pasting a file transfers its bytes to that host through the existing authenticated connection. Client filesystem paths are not sent as host file references. Local mode retains DSH's native behavior. Attachments remain drafts until you send the message; normal DSH limits and approvals apply. Zip folders before uploading: directory drops are rejected, not recursively shared.
+
+Install this connector update on each desktop client; no public endpoint or server networking change is required. The custom upload carrier retains cancellation, but DSH currently does not provide byte-progress callbacks to that hook.
+
 ## Authentication
 
 The credential file must belong to the desktop user and have mode `0600`. Provision an initial host launch token securely; never put it in Git or the profile patch. The connector exchanges it for a server-issued session and saves an origin-bound record in the same file. Sessions survive ordinary host and client restarts, but expiry or revocation requires re-pairing. The server's session lifetime is unchanged.
@@ -38,7 +44,7 @@ Official DSH desktop → authenticated connector → private HTTPS → DSH host
                                                                → model provider
 ```
 
-The connector uses DSH transport hooks for HTTP and WebSocket traffic, including the import companion's admitted route. It does not install a VPN, proxy service or SSH daemon. Network enrollment and server operation are separate responsibilities.
+The connector uses DSH transport hooks for HTTP and WebSocket traffic, including the import companion's admitted route and DSH's dedicated binary-upload hook. It does not install a VPN, proxy service or SSH daemon. Network enrollment and server operation are separate responsibilities.
 
 This is connectivity, not a sandbox or a multi-user authorization boundary. DSH approvals and OS account permissions remain authoritative. Native Finder, directory picking, browser automation and OS open/reveal actions may run on the client; do not assume they operate remotely. Cross-machine media, artifacts and concurrent-client behavior need further qualification.
 

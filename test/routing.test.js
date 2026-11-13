@@ -146,3 +146,44 @@ test('remote HTTP namespace requires admission, a matching host header and API-o
   }
   effects.forEach(f => f());
 });
+
+test('remote upload hook routes document-relative binary uploads without changing bytes or cancellation', async () => {
+  const p = page('dev');
+  p.location.href = 'dsh-app://app/?dshHost=dev';
+  const body = new Blob([new Uint8Array([0, 255, 128, 10])]);
+  const controller = new AbortController();
+  await p.context.__DSH_FILE_UPLOAD__.fetch('api/session/uploadFileBinary?sessionId=test-session&name=clip.zip', {
+    method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body, signal: controller.signal,
+  });
+  const sent = p.requests[0];
+  assert.equal(sent.input.url, 'dsh-app://app/personal-remote/http/dev/api/session/uploadFileBinary?sessionId=test-session&name=clip.zip');
+  assert.equal(sent.init.headers.get(HOST_HEADER), 'dev');
+  assert.equal(sent.init.headers.get('content-type'), 'application/octet-stream');
+  assert.equal(sent.init.body, body);
+  assert.equal(sent.init.signal, controller.signal);
+  assert.deepEqual(new Uint8Array(await sent.init.body.arrayBuffer()), new Uint8Array([0, 255, 128, 10]));
+});
+
+test('upload stream is forwarded without buffering and unknown selections never use local upload', async () => {
+  const p = page('unknown');
+  const stream = new ReadableStream();
+  await p.context.__DSH_FILE_UPLOAD__.fetch('api/session/uploadFileBinary?sessionId=test', {
+    method: 'POST', body: stream, duplex: 'half',
+  });
+  const sent = p.requests[0];
+  assert.equal(new URL(sent.input.url).pathname, '/personal-remote/http/_unavailable/api/session/uploadFileBinary');
+  assert.equal(sent.init.body, stream);
+  assert.equal(sent.init.duplex, 'half');
+  assert.equal(sent.init.headers.get(HOST_HEADER), 'unknown');
+});
+
+test('Local keeps the native upload hook or worker, including desktop-specific behavior', () => {
+  for (const hook of [undefined, { fetch: () => 'native upload' }]) {
+    const context = vm.createContext({ URL, Request, Headers,
+      location: { href: 'dsh-app://app/?dshHost=local' }, fetch() {},
+      __DSH_FILE_UPLOAD__: hook,
+    });
+    vm.runInContext(`(${bootSwitcher.toString()})(${JSON.stringify({ defaultHost: 'local', hosts: [{ id: 'local' }, { id: 'dev' }] })})`, context);
+    assert.equal(context.__DSH_FILE_UPLOAD__, hook);
+  }
+});

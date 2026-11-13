@@ -1,5 +1,5 @@
 import { RemoteProxy } from './proxy.js';
-import { HOST_HEADER, hostList, bootSwitcher } from './routing.js';
+import { HOST_HEADER, hostList, bootSwitcher, installRemoteFileIntake } from './routing.js';
 
 export const name = 'personal-remote-connector';
 export const inject = ['webServer', 'connection'];
@@ -53,6 +53,6 @@ export function apply(ctx, config) {
     const options = { defaultHost, hosts: [{ id: 'local', label: 'Local', description: 'This account' },
       ...hosts.map(({ id, label }) => ({ id, label, description: 'Remote host' }))] };
     table.push({ kind: 'script', placement: 'head', text:
-      `(${bootSwitcher.toString()})(${JSON.stringify(options).replaceAll('<', '\\u003c')});` });
+      `(${bootSwitcher.toString()})(${JSON.stringify(options).replaceAll('<', '\\u003c')});(${installRemoteFileIntake.toString()})();` });
   });
 }

@@ -10,6 +10,50 @@ export function hostList(config) {
   return hosts;
 }
 
+/** Selected client files have bytes, but their native paths have no meaning on a remote host. */
+export function installRemoteFileIntake() {
+  if (globalThis.__DSH_HOST_SWITCHER__?.selected === 'local' || !globalThis.__DSH_HOST_PATHS__) return;
+  const copies = new WeakMap();
+  const detach = file => {
+    if (!copies.has(file)) copies.set(file, new File([file], file.name, { type: file.type, lastModified: file.lastModified }));
+    return copies.get(file);
+  };
+  const transferFiles = source => {
+    const target = new DataTransfer();
+    for (const item of source.items) {
+      if (item.kind !== 'file') {
+        if (item.type) target.setData(item.type, source.getData(item.type));
+        continue;
+      }
+      const file = item.getAsFile();
+      if (!file) continue;
+      const added = target.items.add(detach(file));
+      // Preserve directory detection so DSH refuses a folder, rather than
+      // uploading a zero-byte pseudo-file or sending an unusable local path.
+      if (added && item.webkitGetAsEntry) Object.defineProperty(added, 'webkitGetAsEntry', {
+        value: () => item.webkitGetAsEntry(),
+      });
+    }
+    return target;
+  };
+  document.addEventListener('change', event => {
+    const input = event.target;
+    if (!(input instanceof HTMLInputElement) || input.type !== 'file' || !input.closest('[data-composer-card]') || !input.files?.length) return;
+    const transfer = new DataTransfer();
+    for (const file of input.files) transfer.items.add(detach(file));
+    input.files = transfer.files;
+  }, true);
+  for (const [type, field] of [['drop', 'dataTransfer'], ['paste', 'clipboardData']]) {
+    document.addEventListener(type, event => {
+      const transfer = event[field];
+      if (!transfer?.files.length) return;
+      // Keep DSH's existing drop/paste handlers, validation and draft lifecycle.
+      // Only remove the client filesystem identity from user-selected bytes.
+      Object.defineProperty(event, field, { value: transferFiles(transfer) });
+    }, true);
+  }
+}
+
 // Runs before DSH's client modules. Selection is immutable for this page lifetime.
 export function bootSwitcher(options) {
   const selected = new URL(location.href).searchParams.get('dshHost') ?? options.defaultHost;
@@ -34,6 +78,10 @@ export function bootSwitcher(options) {
   };
   globalThis.fetch = routeFetch;
   transport.fetch = routeFetch;
+  // Blob/stream uploads otherwise use an isolated Worker (XHR/fetch), which
+  // cannot see the page's selected-host routing. DSH exposes this pre-boot hook
+  // for clients that own their transport. Keep Local's native carrier intact.
+  if (selected !== 'local') globalThis.__DSH_FILE_UPLOAD__ = { fetch: routeFetch };
   transport.createWebSocket = url => {
     if (selected === 'local') return previousSocket(url);
     const target = new URL(url);
